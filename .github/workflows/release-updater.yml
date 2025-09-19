@@ -14,8 +14,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Git
-        run: git tag v1.0.0 && git push origin v1.0.0
+      - name: Setup Git (auto tag)
+        shell: pwsh
+        run: |
+          git fetch --tags
+          $last = git tag | Where-Object { $_ -match '^v\d+$' } | Sort-Object { [int]($_ -replace 'v','') } | Select-Object -Last 1
+          if (-not $last) { $next = 1 } else { $next = [int]($last -replace 'v','') + 1 }
+          $tag = "v$next"
+          echo "Creating tag $tag"
+          git tag $tag
+          git push origin $tag
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -37,5 +45,3 @@ jobs:
           files: PancakeOSLauncher.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
