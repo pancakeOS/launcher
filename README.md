@@ -1,1 +1,1 @@
-# PancakeOS Installer/Updater
+# PancakeOS Launcher
