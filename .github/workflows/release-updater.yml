@@ -14,6 +14,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Git
+        run: |
+            # get the latest numeric tag
+            last=$(git tag | grep '^v[0-9]\+$' | sort -V | tail -n1)
+
+            # strip the v and increment
+            num=${last#v}
+            next=$((num+1))
+
+            # create and push new tag
+            git tag v$next
+            git push origin v$next
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -34,3 +47,4 @@ jobs:
           files: PancakeOSLauncher.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
