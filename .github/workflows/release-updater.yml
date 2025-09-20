@@ -2,6 +2,10 @@ name: Build and Release Launcher
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
   push:
     tags:
       - 'v*'
@@ -37,8 +41,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.event.inputs.tag }}
           files: PancakeOSLauncher.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
