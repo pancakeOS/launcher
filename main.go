@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"archive/zip"
 	"strings"
+	"time"
 )
 func isAdmin() bool {
 	f, err := os.OpenFile("C:\\Windows\\System32\\test_admin.txt", os.O_WRONLY|os.O_CREATE, 0644)
@@ -56,6 +57,10 @@ type Release struct {
 }
 
 func main() {
+   if isWine() {
+	   showWineError()
+	   os.Exit(1)
+   }
    fmt.Println("Checking for updates...")
    latest, url, err := getLatestRelease()
    if err != nil {
@@ -99,8 +104,49 @@ func main() {
 		   return
 	   }
 	   os.WriteFile(filepath.Join(installDir, versionFile), []byte(latest), 0644)
-   }
-   launchPancake()
+	   // Log update event
+	   logUpdate("Updated to version " + latest)
+	} else {
+		 // Log install event (if not updating)
+		 logUpdate("Installed version " + current)
+	}
+	launchPancake()
+}
+
+// logUpdate writes a log file to C:/Program Files/PancakeOS/logs/ with timestamp and date as filename
+func logUpdate(message string) {
+	logDir := filepath.Join(installDir, "logs")
+	os.MkdirAll(logDir, 0755)
+	now := time.Now()
+	filename := now.Format("2006-01-02_15-04-05") + ".txt"
+	logPath := filepath.Join(logDir, filename)
+	logMsg := now.Format("2006-01-02 15:04:05") + " - " + message + "\n"
+	os.WriteFile(logPath, []byte(logMsg), 0644)
+}
+
+// isWine checks if the program is running under Wine
+func isWine() bool {
+	// Wine sets the WINELOADERNOEXEC environment variable
+	if os.Getenv("WINELOADERNOEXEC") != "" {
+		return true
+	}
+	// Wine also sets the "wine" in the process name sometimes
+	if strings.Contains(strings.ToLower(os.Getenv("PATH")), "wine") {
+		return true
+	}
+	// Try to run a Wine-specific command (reg query for Wine registry key)
+	cmd := exec.Command("reg", "query", "HKCU\\Software\\Wine")
+	if err := cmd.Run(); err == nil {
+		return true
+	}
+	return false
+}
+
+// showWineError displays an error message and exits
+func showWineError() {
+	// Use a message box for visibility
+	exec.Command("powershell", "-Command", "[System.Windows.MessageBox]::Show('Wine is not supported.')").Run()
+	fmt.Println("Wine is not supported.")
 }
 
 func getLatestRelease() (string, string, error) {
@@ -141,8 +187,40 @@ func downloadFile(url, dest string) error {
 		return err
 	}
 	defer out.Close()
-	_, err = io.Copy(out, resp.Body)
-	return err
+	size := resp.ContentLength
+	if size <= 0 {
+		// fallback if size unknown
+		_, err = io.Copy(out, resp.Body)
+		return err
+	}
+	fmt.Print("Downloading: [")
+	var downloaded int64 = 0
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := resp.Body.Read(buf)
+		if n > 0 {
+			out.Write(buf[:n])
+			downloaded += int64(n)
+			percent := int(float64(downloaded) / float64(size) * 50)
+			fmt.Print("\rDownloading: [")
+			for i := 0; i < 50; i++ {
+				if i < percent {
+					fmt.Print("=")
+				} else {
+					fmt.Print(" ")
+				}
+			}
+			fmt.Printf("] %d%%", int(float64(downloaded)/float64(size)*100))
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+	}
+	fmt.Println()
+	return nil
 }
 
 func unzip(src, dest string) error {
