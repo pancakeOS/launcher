@@ -1,0 +1,29 @@
+# Binaries for various platforms
+/*.exe
+/*.AppImage
+pancakeos
+
+# Build output
+/dist/
+/package/
+/rpmbuild/
+
+# Go build / vendor
+/bin/
+/pkg/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor temp files
+*~
+# VS Code
+.vscode/
+
+# Logs
+/logs/
+
+# IDE files
+.idea/
+

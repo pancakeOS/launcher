@@ -38,11 +38,94 @@ jobs:
           name: PancakeOSLauncher
           path: PancakeOSLauncher.exe
 
-      - name: Create GitHub Release
+      # Release step moved to dedicated job that aggregates all artifacts
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install dependencies for packaging
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgpgme11 libfuse2 desktop-file-utils squashfs-tools xz-utils curl
+
+      - name: Make packaging script executable
+        run: chmod +x ./scripts/package_linux.sh
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "version=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            ref="${GITHUB_REF#refs/tags/}"
+            if [ "$ref" = "$GITHUB_REF" ]; then
+              echo "version=0.0.0" >> "$GITHUB_OUTPUT"
+            else
+              echo "version=$ref" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Run packaging script
+        run: |
+          VERSION=${{ steps.ver.outputs.version }} ./scripts/package_linux.sh
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pancakeos-linux
+          path: dist/**
+
+  release:
+    needs: [build, build-linux]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (needed for tag resolution)
+        uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: PancakeOSLauncher
+          path: release_artifacts/windows
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: pancakeos-linux
+          path: release_artifacts/linux
+
+      - name: Determine release tag
+        id: get_tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            # extract tag from ref if push tag event
+            if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+              ref="${GITHUB_REF#refs/tags/}"
+              echo "tag=$ref" >> "$GITHUB_OUTPUT"
+            else
+              echo "tag=untagged" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Create GitHub Release with artifacts
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.event.inputs.tag }}
-          files: PancakeOSLauncher.exe
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          files: |
+            release_artifacts/windows/**
+            release_artifacts/linux/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
