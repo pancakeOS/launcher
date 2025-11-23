@@ -107,6 +107,23 @@ mkdir -p "$DEB_INSTALL_DIR/bin"
 cp "$DIST_DIR/$BINARY_NAME" "$DEB_INSTALL_DIR/bin/"
 chmod 0755 "$DEB_INSTALL_DIR/bin/$BINARY_NAME"
 
+# Install desktop entry and icon for Debian package so it appears in menus
+mkdir -p "$PKG_DEB_ROOT/usr/share/applications"
+cat > "$PKG_DEB_ROOT/usr/share/applications/pancakeos.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=PancakeOS
+Exec=/opt/pancakeos/bin/pancakeos
+Icon=pancakeos
+Categories=Utility;
+Terminal=false
+EOF
+chmod 0644 "$PKG_DEB_ROOT/usr/share/applications/pancakeos.desktop"
+
+mkdir -p "$PKG_DEB_ROOT/usr/share/icons/hicolor/256x256/apps"
+echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=" | base64 -d > "$PKG_DEB_ROOT/usr/share/icons/hicolor/256x256/apps/pancakeos.png"
+chmod 0644 "$PKG_DEB_ROOT/usr/share/icons/hicolor/256x256/apps/pancakeos.png"
+
 # generate control file from template if present
 CTRL_TEMPLATE="packaging/debian/control.tpl"
 CONTROL_DEST="$PKG_DEB_ROOT/DEBIAN"
